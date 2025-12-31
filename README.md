@@ -1,16 +1,26 @@
-# health_app
+# 🏥 Health Tracker App
 
-A new Flutter project.
+A professional Flutter application designed to help users monitor their health metrics in real-time. This app integrates with Google Health Connect to fetch fitness data and provides useful health tools.
 
-## Getting Started
+## ✨ Features
+* **📊 Real-time Dashboard:** Displays daily step counts and heart rate data.
+* **⚖️ BMI Calculator:** Quickly calculate your Body Mass Index with health category feedback.
+* **🔄 Instant Sync:** One-tap refresh to fetch the latest health data from your device.
+* **🎨 Modern UI:** Clean, user-friendly interface with intuitive navigation.
 
-This project is a starting point for a Flutter application.
+## 🛠️ Tech Stack
+* **Framework:** Flutter
+* **Language:** Dart
+* **Health Data:** [health](https://pub.dev/packages/health) package
+* **Styling:** Material 3 Design
 
-A few resources to get you started if this is your first Flutter project:
+## 🚀 Getting Started
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+### Prerequisites
+* Flutter SDK installed.
+* Android device with **Health Connect** installed.
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+### Installation
+1. Clone the repository:
+   ```bash
+   git clone [https://github.com/Madhuranga-web/health_app.git](https://github.com/Madhuranga-web/health_app.git)

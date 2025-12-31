@@ -15,6 +15,7 @@ dependencies:
   pedometer: ^4.0.0   
   fl_chart: ^1.1.1   
   intl: ^0.20.2
+  percent_indicator: ^4.2.5
 
 dev_dependencies:
   flutter_test:
