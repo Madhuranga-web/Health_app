@@ -1,8 +1,7 @@
-// ignore_for_file: avoid_print
-
 import 'package:flutter/material.dart';
 import 'package:health/health.dart';
-//import 'package:intl/intl.dart';
+// import 'package:intl/intl.dart';
+import 'package:percent_indicator/percent_indicator.dart';
 
 void main() => runApp(const MaterialApp(
       debugShowCheckedModeBanner: false,
@@ -18,12 +17,7 @@ class MainHomeScreen extends StatefulWidget {
 
 class _MainHomeScreenState extends State<MainHomeScreen> {
   int _selectedIndex = 0;
-
-  // පිටු දෙක (Dashboard සහ BMI)
-  final List<Widget> _pages = [
-    const HealthDashboard(),
-    const BMICalculator(),
-  ];
+  final List<Widget> _pages = [const HealthDashboard(), const BMICalculator()];
 
   @override
   Widget build(BuildContext context) {
@@ -32,16 +26,18 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: (index) => setState(() => _selectedIndex = index),
+        selectedItemColor: Colors.blueAccent,
+        unselectedItemColor: Colors.grey,
+        showUnselectedLabels: false,
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Dashboard'),
-          BottomNavigationBarItem(icon: Icon(Icons.calculate), label: 'BMI'),
+          BottomNavigationBarItem(icon: Icon(Icons.grid_view_rounded), label: 'Dashboard'),
+          BottomNavigationBarItem(icon: Icon(Icons.fitness_center), label: 'BMI'),
         ],
       ),
     );
   }
 }
 
-// --- ලස්සන Dashboard එක ---
 class HealthDashboard extends StatefulWidget {
   const HealthDashboard({super.key});
 
@@ -52,145 +48,198 @@ class HealthDashboard extends StatefulWidget {
 class _HealthDashboardState extends State<HealthDashboard> {
   List<HealthDataPoint> _healthDataList = [];
   bool _isLoading = false;
+  int _steps = 0;
+  double _heartRate = 0;
   Health health = Health();
 
-Future<void> fetchData() async {
-  setState(() => _isLoading = true);
-
-  List<HealthDataType> types = [
-    HealthDataType.STEPS,
-    HealthDataType.HEART_RATE,
-  ];
-
-  try {
+  Future<void> fetchData() async {
+    setState(() => _isLoading = true);
+    List<HealthDataType> types = [HealthDataType.STEPS, HealthDataType.HEART_RATE];
+    
     bool accessGranted = await health.requestAuthorization(types);
 
     if (accessGranted) {
       DateTime now = DateTime.now();
-      DateTime yesterday = now.subtract(const Duration(hours: 24));
+      DateTime midNight = DateTime(now.year, now.month, now.day);
+      
+      try {
+        List<HealthDataPoint> data = await health.getHealthDataFromTypes(startTime: midNight, endTime: now, types: types);
+        int totalSteps = 0;
+        double lastHeartRate = 0;
 
-      List<HealthDataPoint> healthData = await health.getHealthDataFromTypes(
-        startTime: yesterday,
-        endTime: now,
-        types: types,
-      );
+        for (var p in data) {
+          if (p.type == HealthDataType.STEPS) {
+            totalSteps += int.parse(p.value.toString());
+          } else if (p.type == HealthDataType.HEART_RATE) {
+            lastHeartRate = double.parse(p.value.toString());
+          }
+        }
 
-      setState(() {
-        _healthDataList = health.removeDuplicates(healthData);
-        _isLoading = false;
-      });
-    } else {
-      setState(() => _isLoading = false);
-      print("අවසර ලැබුණේ නැත");
+        setState(() {
+          _healthDataList = health.removeDuplicates(data);
+          _steps = totalSteps;
+          _heartRate = lastHeartRate;
+          _isLoading = false;
+        });
+      } catch (e) {
+        setState(() => _isLoading = false);
+        debugPrint("Error: $e");
+      }
     }
-  } catch (e) {
-    setState(() => _isLoading = false);
-    print("Error: $e");
   }
-}
-
 
   @override
   Widget build(BuildContext context) {
+    double stepGoal = 6000; 
+    double progress = (_steps / stepGoal).clamp(0.0, 1.0);
+
     return Scaffold(
-      appBar: AppBar(title: const Text("My Health Dashboard"), centerTitle: true),
-      body: Column(
-        children: [
-          _buildSummaryCard(), // සාරාංශයක් පෙන්වන කාඩ් එක
-          Expanded(
-            child: _isLoading 
-              ? const Center(child: CircularProgressIndicator()) 
-              : ListView.builder(
-                  itemCount: _healthDataList.length,
-                  itemBuilder: (c, i) => _buildDataTile(_healthDataList[i]),
+      backgroundColor: const Color(0xFFF8F9FD),
+      appBar: AppBar(
+        title: const Text("My Health", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black)),
+        centerTitle: true,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        actions: [
+          IconButton(onPressed: fetchData, icon: const Icon(Icons.sync, color: Colors.blueAccent))
+        ],
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            // Circular Progress Section
+            Container(
+              padding: const EdgeInsets.all(25),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(30),
+                // ignore: deprecated_member_use
+                boxShadow: [BoxShadow(color: Colors.blue.withOpacity(0.05), blurRadius: 20, offset: const Offset(0, 10))],
+              ),
+              child: CircularPercentIndicator(
+                radius: 110.0,
+                lineWidth: 12.0,
+                animation: true,
+                percent: progress,
+                center: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text("$_steps", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 35)),
+                    const Text("Steps", style: TextStyle(color: Colors.grey, fontSize: 16)),
+                  ],
                 ),
-          ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: fetchData,
-        child: const Icon(Icons.refresh),
+                circularStrokeCap: CircularStrokeCap.round,
+                progressColor: Colors.blueAccent,
+                backgroundColor: Colors.blue.shade50,
+              ),
+            ),
+            const SizedBox(height: 25),
+            
+            // Stats Row
+            Row(
+              children: [
+                _buildSmallCard("Heart Rate", "${_heartRate.toInt()} bpm", Icons.favorite, Colors.redAccent),
+                const SizedBox(width: 15),
+                _buildSmallCard("Goal", "${(progress * 100).toInt()}%", Icons.flag, Colors.orangeAccent),
+              ],
+            ),
+            const SizedBox(height: 20),
+            
+            // Recent Data List
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text("Recent Activity", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            ),
+            const SizedBox(height: 10),
+            _isLoading 
+              ? const CircularProgressIndicator()
+              : Column(
+                  children: _healthDataList.take(5).map((p) => _buildDataRow(p)).toList(),
+                ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildSummaryCard() {
-    return Container(
-      margin: const EdgeInsets.all(15),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [Colors.green, Colors.teal]),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: const Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text("Daily Goal", style: TextStyle(color: Colors.white70)),
-              Text("6,500 Steps", style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
-            ],
-          ),
-          Icon(Icons.directions_run, color: Colors.white, size: 40),
-        ],
+  Widget _buildSmallCard(String title, String value, IconData icon, Color color) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(25)),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: color, size: 30),
+            const SizedBox(height: 15),
+            Text(title, style: const TextStyle(color: Colors.grey)),
+            Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildDataTile(HealthDataPoint p) {
+  Widget _buildDataRow(HealthDataPoint p) {
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 5),
+      elevation: 0,
+      margin: const EdgeInsets.symmetric(vertical: 5),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
       child: ListTile(
-        leading: Icon(p.type == HealthDataType.STEPS ? Icons.nordic_walking : Icons.favorite, color: Colors.green),
-        title: Text(p.typeString.replaceAll("HealthDataType.", "")),
-        trailing: Text(p.value.toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        leading: CircleAvatar(
+          backgroundColor: Colors.blue.shade50,
+          child: Icon(p.type == HealthDataType.STEPS ? Icons.directions_walk : Icons.favorite, color: Colors.blueAccent),
+        ),
+        title: Text(p.typeString.split('.').last),
+        trailing: Text(p.value.toString(), style: const TextStyle(fontWeight: FontWeight.bold)),
       ),
     );
   }
 }
 
-// --- BMI Calculator පිටුව ---
 class BMICalculator extends StatefulWidget {
   const BMICalculator({super.key});
-
   @override
   State<BMICalculator> createState() => _BMICalculatorState();
 }
 
 class _BMICalculatorState extends State<BMICalculator> {
-  final _heightController = TextEditingController();
-  final _weightController = TextEditingController();
-  double? _bmiResult;
-
-  void calculateBMI() {
-    double h = double.tryParse(_heightController.text) ?? 0;
-    double w = double.tryParse(_weightController.text) ?? 0;
-    if (h > 0 && w > 0) {
-      setState(() {
-        _bmiResult = w / ((h / 100) * (h / 100));
-      });
-    }
-  }
+  final _hC = TextEditingController();
+  final _wC = TextEditingController();
+  double? _bmi;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("BMI Calculator")),
+      appBar: AppBar(title: const Text("BMI Calculator"), centerTitle: true),
       body: Padding(
-        padding: const EdgeInsets.all(20.0),
+        padding: const EdgeInsets.all(30),
         child: Column(
           children: [
-            TextField(controller: _heightController, decoration: const InputDecoration(labelText: "උස (cm)", border: OutlineInputBorder())),
+            TextField(controller: _hC, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: "Height (cm)", border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)))),
             const SizedBox(height: 15),
-            TextField(controller: _weightController, decoration: const InputDecoration(labelText: "බර (kg)", border: OutlineInputBorder())),
-            const SizedBox(height: 20),
-            ElevatedButton(onPressed: calculateBMI, child: const Text("ගණනය කරන්න")),
-            if (_bmiResult != null) ...[
-              const SizedBox(height: 30),
-              Text("ඔබේ BMI අගය: ${_bmiResult!.toStringAsFixed(1)}", style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-              Text(_bmiResult! < 18.5 ? "අඩු බර (Underweight)" : _bmiResult! < 25 ? "සාමාන්‍ය බර (Normal)" : "වැඩි බර (Overweight)", 
-                style: TextStyle(fontSize: 18, color: Colors.blueGrey[700])),
+            TextField(controller: _wC, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: "Weight (kg)", border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)))),
+            const SizedBox(height: 30),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blueAccent, 
+                foregroundColor: Colors.white, 
+                minimumSize: const Size(double.infinity, 55),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))
+              ),
+              onPressed: () {
+                double h = double.parse(_hC.text) / 100;
+                double w = double.parse(_wC.text);
+                setState(() => _bmi = w / (h * h));
+              },
+              child: const Text("Calculate My BMI", style: TextStyle(fontSize: 18)),
+            ),
+            if (_bmi != null) ...[
+              const SizedBox(height: 40),
+              const Text("Your BMI Result", style: TextStyle(color: Colors.grey)),
+              Text(_bmi!.toStringAsFixed(1), style: const TextStyle(fontSize: 60, fontWeight: FontWeight.bold, color: Colors.blueAccent)),
+              Text(_bmi! < 18.5 ? "Underweight" : _bmi! < 25 ? "Healthy" : "Overweight", style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w500)),
             ]
           ],
         ),
